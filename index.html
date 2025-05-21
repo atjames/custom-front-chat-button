@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Custom Button to close and open Front Chat demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    pre code {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center px-4 py-10 space-y-10">
+
+  <h1 class="text-4xl font-bold text-center">Custom Button that Controls Front Chat Widget</h1>
+<p class="text-lg text-left max-w-2xl">
+  Click the button below to open Front Chat. The chat frame will auto-hide either when the user clicks the button again, or when they close it from within the widget itself.
+  This behavior is made possible using a
+  <a href="https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver" target="_blank" class="text-blue-400 underline hover:text-blue-300">
+MutationObserver</a>
+  to detect when the chat iframe changes or closes.<br><br>
+  <span class="text-sm text-gray-400">
+  ⚠️ This setup uses a custom approach to control the Front Chat widget. Since it depends on how the widget currently works behind the scenes, future updates from Front could break this implementation.<br>
+  🚧 Please note: this may not work perfectly in every situation. Because it's not officially supported by Front, results may vary.<br>
+  💡 This demo was built using 
+  <a href="https://tailwindcss.com" target="_blank" class="text-blue-400 underline hover:text-blue-300">Tailwind CSS</a> 
+  and JavaScript.
+  </span>
+</p>
+
+  <!-- 👇 Custom Chat Button -->
+  <button
+  class="spider-front-chat-btn px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md opacity-50 cursor-not-allowed transition duration-300"
+  disabled
+  >
+  Chat with us
+</button>
+
+  <!-- 👇 Display Code -->
+  <div class="w-full max-w-5xl mt-12">
+  <h2 class="text-2xl font-bold mb-4">JavaScript used:</h2>
+  <pre class="bg-gray-800 p-4 rounded-lg overflow-auto text-sm text-white"><code>
+let chatFrontLoaded = false; // Tracks if Front Chat has loaded
+let chatVisible = false;     // Tracks if the chat is currently open
+
+// Waits until the FrontChat SDK is avaliable
+function waitForFrontChat(callback) {
+  const interval = setInterval(() => {
+    if (window.FrontChat) {
+      clearInterval(interval);
+      callback(); // Run init once FrontChat is ready
+    }
+  }, 100);
+}
+
+// Initializes the Front Chat widget with custom settings
+function initFrontChat() {
+  window.FrontChat('init', {
+    chatId: 'YOUR_CHAT_ID_HERE', // Replace with your real Chat ID
+    useDefaultLauncher: true, 
+    shouldHideExpandButton: true, 
+    onInitCompleted: () => {
+      chatFrontLoaded = true;
+      window.FrontChat('hide');      // Start the widget hidden
+      shrinkChatIframe();            // Shrink iframe to 1px
+      setupMutationObserver();       // Watch for manual closes
+
+      // Enable the custom "Chat with us" button now that it's safe
+      const chatBtn = document.querySelector('.spider-front-chat-btn');
+      if (chatBtn) {
+        chatBtn.disabled = false;
+        chatBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+  });
+}
+
+// Shrinks the Front chat iframe so it's effectively invisible
+function shrinkChatIframe() {
+  const iframe = document.querySelector('#front-chat-iframe');
+  if (iframe) {
+    iframe.style.width = '1px';
+    iframe.style.height = '1px';
+  }
+}
+
+// Expands the iframe to its normal size
+function expandChatIframe() {
+  const iframe = document.querySelector('#front-chat-iframe');
+  if (iframe) {
+    iframe.style.width = '';
+    iframe.style.height = '';
+  }
+}
+
+// Makes the custom button toggle the chat open/closed
+function setupCustomChatButton() {
+  const chatBtn = document.querySelector('.spider-front-chat-btn');
+  if (!chatBtn) return;
+
+  chatBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!chatFrontLoaded) return;
+
+    const iframe = document.querySelector('#front-chat-iframe');
+    if (!iframe) return;
+
+    if (chatVisible) {
+      // User wants to close chat via button
+      window.FrontChat('hide');
+      shrinkChatIframe();
+      chatVisible = false;
+      chatBtn.textContent = 'Chat with us';
+    } else {
+      // User wants to open chat via button
+      expandChatIframe();
+      window.FrontChat('show');
+      chatVisible = true;
+      chatBtn.textContent = 'Close Chat';
+    }
+  });
+}
+
+// Watches the iframe for style changes to detect chat closing
+function setupMutationObserver() {
+  const iframe = document.querySelector('#front-chat-iframe');
+  if (!iframe) return;
+
+  const observer = new MutationObserver(() => {
+    const isChatVisible = iframe.offsetWidth > 100 && iframe.offsetHeight > 100;
+    if (!isChatVisible) {
+      // User closed chat via widget UI
+      shrinkChatIframe();
+
+      const chatBtn = document.querySelector('.spider-front-chat-btn');
+      if (chatBtn) {
+        chatBtn.textContent = 'Chat with us';
+      }
+
+      // Keep internal state in sync
+      chatVisible = false;
+    }
+  });
+
+  observer.observe(iframe, {
+    attributes: true,
+    attributeFilter: ['style', 'class'] // Watch for style changes
+  });
+}
+
+// Start the whole process once the DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  waitForFrontChat(() => {
+    initFrontChat();
+    setupCustomChatButton();
+  });
+});
+  </code></pre>
+</div>
+
+  <!-- Front Chat SDK -->
+  <script src="https://chat-assets.frontapp.com/v1/chat.bundle.js"></script>
+  <script>
+    let chatFrontLoaded = false; // Tracks if Front Chat has loaded
+    let chatVisible = false;     // Tracks if the chat is currently open
+    let didChat = false; // Tracks if the user clicked on "Start New Conversation" within the widget
+
+// Waits until the FrontChat API is avaliable
+function waitForFrontChat(callback) {
+  const interval = setInterval(() => {
+    if (window.FrontChat) {
+      clearInterval(interval);
+      callback(); // Run init once FrontChat is ready
+    }
+  }, 100);
+}
+
+// Initializes the Front Chat widget with custom settings
+function initFrontChat() {
+  window.FrontChat('init', {
+    chatId: 'c3313d0b6b3205dcb92c19594a98e94a', // Replace with your real Chat ID
+    useDefaultLauncher: true, 
+    shouldHideExpandButton: true, 
+    onInitCompleted: () => {
+      chatFrontLoaded = true;
+      window.FrontChat('hide');      // Start the widget hidden
+      shrinkChatIframe();            // Shrink iframe to 1px
+      setupMutationObserver();       // Watch for manual closes
+
+      // Enable the custom "Open chat" button now that it's safe
+      const chatBtn = document.querySelector('.spider-front-chat-btn');
+      if (chatBtn) {
+        chatBtn.disabled = false;
+        chatBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+  });
+}
+
+// Shrinks the Front chat iframe so it's effectively invisible
+function shrinkChatIframe() {
+  const iframe = document.querySelector('#front-chat-iframe');
+  if (iframe) {
+    iframe.style.width = '1px';
+    iframe.style.height = '1px';
+  }
+}
+
+// Expands the iframe to its normal size
+function expandChatIframe() {
+  const iframe = document.querySelector('#front-chat-iframe');
+  if (iframe) {
+    iframe.style.width = '';
+    iframe.style.height = '';
+  }
+}
+
+// Makes the custom button toggle the chat open/closed
+function setupCustomChatButton() {
+  const chatBtn = document.querySelector('.spider-front-chat-btn');
+  if (!chatBtn) return;
+
+  chatBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!chatFrontLoaded) return;
+
+    const iframe = document.querySelector('#front-chat-iframe');
+    if (!iframe) return;
+
+    if (chatVisible) {
+      // User wants to close chat via button
+      window.FrontChat('hide');
+      shrinkChatIframe();
+      chatVisible = false;
+      chatBtn.textContent = 'Chat with us';
+    } else {
+      // User wants to open chat via button
+      expandChatIframe();
+      window.FrontChat('show');
+      chatVisible = true;
+      chatBtn.textContent = 'Close Chat';
+    }
+  });
+}
+
+// Watches the iframe for style changes to detect chat closing
+function setupMutationObserver() {
+  const iframe = document.querySelector('#front-chat-iframe');
+  if (!iframe) return;
+ 
+  const observer = new MutationObserver(() => {
+    const isChatVisible = iframe.offsetWidth > 100 && iframe.offsetHeight > 100;
+    if (!isChatVisible) {
+      shrinkChatIframe();
+
+      const chatBtn = document.querySelector('.spider-front-chat-btn');
+      if (chatBtn) {
+        chatBtn.textContent = 'Chat with us';
+      }
+      // Keep internal state in sync
+      chatVisible = false;
+    }
+  });
+  observer.observe(iframe, {
+    attributes: true,
+    attributeFilter: ['style', 'class'] // Watch for style changes
+  });
+}
+
+// Start the whole process once the DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  waitForFrontChat(() => {
+    initFrontChat();
+    setupCustomChatButton();
+  });
+});
+  </script>
+</body>
+</html>
